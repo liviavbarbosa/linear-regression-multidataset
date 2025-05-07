@@ -10,6 +10,17 @@ import pyreadstat
 
 
 def carregar_dados(caminho_arquivo, variaveis_independentes, variavel_dependente):
+    """
+    Carrega dados de um arquivo .csv ou .sav, tratando valores categóricos e ausentes.
+
+    Args:
+        caminho_arquivo (str): Caminho do arquivo de dados.
+        variaveis_independentes (list): Lista das variáveis independentes.
+        variavel_dependente (str): Nome da variável dependente.
+
+    Returns:
+        tuple: Arrays X (variáveis independentes), y (dependente), e DataFrame original tratado.
+    """
     if caminho_arquivo.endswith('.csv'):
         df = pd.read_csv(caminho_arquivo)
     elif caminho_arquivo.endswith('.sav'):
@@ -29,6 +40,13 @@ def carregar_dados(caminho_arquivo, variaveis_independentes, variavel_dependente
 
 
 def verificar_gaussianidade(y):
+    """
+    Realiza testes de normalidade (Shapiro-Wilk, Anderson-Darling e Kolmogorov-Smirnov)
+    sobre os dados da variável dependente.
+
+    Args:
+        y (array-like): Vetor com os valores da variável dependente.
+    """
     # Shapiro-Wilk
     stat_shapiro, p_shapiro = shapiro(y)
     print(f"\nShapiro-Wilk: estatística={stat_shapiro:.4f}, p-valor={p_shapiro:.4f}")
@@ -51,6 +69,21 @@ def verificar_gaussianidade(y):
 
 
 def regressao_manual(X, y):
+    """
+    Realiza Regressão Linear Múltipla manualmente, utilizando a pseudo-inversa de Moore-Penrose.
+
+    Essa função estima os coeficientes da regressão linear (beta) sem o uso de bibliotecas especializadas 
+    de machine learning. Adiciona automaticamente o termo de interceptação (bias) à matriz de entrada.
+
+    Args:
+        X (array): Matriz 2D com as variáveis independentes (amostras x atributos).
+        y (array): Vetor 1D com os valores da variável dependente.
+
+    Returns:
+        tuple:
+            - beta (array): Vetor de coeficientes estimados da regressão (inclui o intercepto).
+            - y_pred (array): Valores preditos pela regressão para os dados de entrada X.
+    """
     X_ = np.hstack([np.ones((X.shape[0], 1)), X])
     beta = np.linalg.pinv(X_.T @ X_) @ X_.T @ y
     y_pred = X_ @ beta
@@ -58,6 +91,16 @@ def regressao_manual(X, y):
 
 
 def regressao_sklearn(X, y):
+    """
+    Realiza regressão linear múltipla utilizando o Scikit-Learn.
+
+    Args:
+        X (array): Matriz de variáveis independentes.
+        y (array): Vetor da variável dependente.
+
+    Returns:
+        tuple: Modelo treinado e predições (y_pred).
+    """
     model = LinearRegression()
     model.fit(X, y)
     y_pred = model.predict(X)
@@ -67,12 +110,33 @@ def regressao_sklearn(X, y):
 
 
 def avaliar_modelo(y_true, y_pred):
+    """
+    Avalia o desempenho de um modelo de regressão com MSE e R².
+
+    Args:
+        y_true (array): Valores reais.
+        y_pred (array): Valores preditos pelo modelo.
+
+    Returns:
+        tuple: Métricas MSE e R².
+    """
     mse = mean_squared_error(y_true, y_pred)
     r2 = r2_score(y_true, y_pred)
     return mse, r2
 
 
 def validacao_k_fold(X, y, k=5):
+    """
+    Realiza validação cruzada k-fold com regressão linear manual.
+
+    Args:
+        X (array): Matriz de variáveis independentes.
+        y (array): Vetor da variável dependente.
+        k (int): Número de folds.
+
+    Returns:
+        tuple: Listas de MSE e R² por fold, além das médias de cada métrica.
+    """
     n = len(X)
     fold_size = n // k
     np.random.seed(42)
@@ -102,20 +166,47 @@ def validacao_k_fold(X, y, k=5):
     return mse_list, r2_list, np.mean(mse_list), np.mean(r2_list)
 
 
-def plotar_resultados(y, y_pred):
-    plt.figure(figsize=(8, 6))
-    sns.regplot(x=y, y=y_pred, line_kws={"color": "red"}, ci=95)
-    plt.xlabel("Valores reais")
-    plt.ylabel("Previsões")
-    plt.title("Regressão Linear: Valores Reais vs Previsões")
-    plt.grid(True)
+def plotar_resultados(X, y_real, y_pred):
+    """
+    Plota uma visualização 3D dos dados reais e do plano de regressão, além de exibir um histograma 
+    dos resíduos (diferença entre valores reais e predições).
+
+    A visualização 3D mostra as variáveis independentes (as duas primeiras colunas de X) no eixo X e Y, 
+    com a variável dependente no eixo Z, e o plano de regressão que melhor se ajusta aos dados. 
+    O histograma dos resíduos permite analisar a distribuição dos erros do modelo.
+
+    Args:
+        X (array): Matriz 2D contendo as variáveis independentes (deve ter pelo menos 2 colunas).
+        y_real (array): Vetor 1D com os valores reais da variável dependente.
+        y_pred (array): Vetor 1D com os valores preditos pelo modelo de regressão.
+    """
+    x1 = np.array([x[0] for x in X])
+    x2 = np.array([x[1] for x in X])
+    y_real = np.array(y_real)
+    y_pred = np.array(y_pred)
+
+    if len(set(x1)) < 3 or len(set(x2)) < 3:
+        print("Dados insuficientes para plotar em 3D (varie mais as primeiras duas features).")
+        return
+
+    fig = plt.figure(figsize=(10, 7))
+    ax = fig.add_subplot(111, projection='3d')
+
+    ax.scatter(x1, x2, y_real, c='blue', label='Valores reais')
+
+    ax.plot_trisurf(x1, x2, y_pred, color='red', alpha=0.5, label='Plano de Regressão')
+
+    ax.set_xlabel("Variável 1 (X₁)")
+    ax.set_ylabel("Variável 2 (X₂)")
+    ax.set_zlabel("Variável Dependente (Y)")
+    ax.set_title("Regressão Linear Múltipla - Visualização 3D")
+    plt.legend()
     plt.tight_layout()
     plt.show()
 
-    # Plotando resíduos
-    residuos = y - y_pred
+    residuos = y_real - y_pred
     plt.figure(figsize=(8, 5))
-    sns.histplot(residuos, kde=True, bins=30)
+    sns.histplot(residuos, kde=True, bins=30, color='purple')
     plt.title("Distribuição dos Resíduos")
     plt.xlabel("Erro")
     plt.grid(True)
@@ -124,6 +215,15 @@ def plotar_resultados(y, y_pred):
 
 
 def imprimir_resultados(mse_list, r2_list, mse_avg, r2_avg):
+    """
+    Imprime os resultados da validação cruzada k-fold.
+
+    Args:
+        mse_list (list): Lista de valores MSE por fold.
+        r2_list (list): Lista de valores R² por fold.
+        mse_avg (float): Média dos valores de MSE.
+        r2_avg (float): Média dos valores de R².
+    """
     print("\nValidação K-Fold:")
     print(f"R² médio: {r2_avg:.4f}")
     print(f"MSE médio: {mse_avg:.4f}")
@@ -132,6 +232,15 @@ def imprimir_resultados(mse_list, r2_list, mse_avg, r2_avg):
 
 
 def executar_analise(caminho_arquivo, variaveis_independentes, variavel_dependente, k=5):
+    """
+    Executa o pipeline completo de análise de regressão linear.
+
+    Args:
+        caminho_arquivo (str): Caminho do arquivo de dados (.csv ou .sav).
+        variaveis_independentes (list): Lista de nomes das variáveis independentes.
+        variavel_dependente (str): Nome da variável dependente.
+        k (int): Número de folds para validação cruzada.
+    """
     nome_arquivo = os.path.basename(caminho_arquivo)
     print(f"\n===== Analisando arquivo: {nome_arquivo} =====")
     
@@ -154,4 +263,4 @@ def executar_analise(caminho_arquivo, variaveis_independentes, variavel_dependen
     mse_list, r2_list, mse_avg, r2_avg = validacao_k_fold(X, y, k)
     imprimir_resultados(mse_list, r2_list, mse_avg, r2_avg)
 
-    plotar_resultados(y, y_pred_sklearn)
+    plotar_resultados(X, y, y_pred_sklearn)
