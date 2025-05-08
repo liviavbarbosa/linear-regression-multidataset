@@ -263,4 +263,4 @@ def executar_analise(caminho_arquivo, variaveis_independentes, variavel_dependen
     mse_list, r2_list, mse_avg, r2_avg = validacao_k_fold(X, y, k)
     imprimir_resultados(mse_list, r2_list, mse_avg, r2_avg)
 
-    plotar_resultados(X, y, y_pred_sklearn)
+    plotar_resultados(X, y, y_pred_manual)
